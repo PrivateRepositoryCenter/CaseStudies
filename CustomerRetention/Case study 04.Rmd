@@ -1,0 +1,436 @@
+---
+title: "Customer Retention"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+opts_chunk$set(echo = TRUE)
+library(SMCRM) # 
+library(randomForestSRC)
+library(ggplot2)
+library(gridExtra)
+library(dplyr)
+library(car)
+library(ROCR)
+library(rpart)
+library(corrplot)
+library(caret)
+library(radiant.data)
+library(rattle)
+```
+
+```{r}
+# Getting the data set and its summary
+data("acquisitionRetention")
+summary(acquisitionRetention)
+```
+
+
+```{r}
+# Plotting Theme
+plot_theme <- theme_classic()+
+                theme(
+                  axis.line.y.left = element_line(colour = "black"),
+                  axis.line.y.right = element_line(colour = "black"),
+                  axis.line.x.bottom = element_line(colour = "black"),
+                  axis.line.x.top = element_line(colour = "black"),
+                  axis.text.y = element_text(colour = "black", size = 12),
+                  axis.text.x = element_text(color = "black", size = 12),
+                  axis.ticks = element_line(color = "black")) +
+                theme(
+                  axis.ticks.length = unit(-0.25, "cm"), 
+                  axis.text.x = element_text(margin=unit(c(0.5,0.5,0.5,0.5), "cm")), 
+                  axis.text.y = element_text(margin=unit(c(0.5,0.5,0.5,0.5), "cm")))
+```
+
+## Onmit NA values if present and remove customer variables
+```{r}
+df = na.omit(acquisitionRetention)
+df = subset(df, select = -customer)
+sum(duplicated(df))
+```
+
+## Exploratory Data Analysis (Visualizations)
+### Acquisition
+```{r}
+table(df$acquisition)
+p1 <- ggplot(df,aes(x = factor(ifelse(acquisition == 1, "Acquired", "Not-Acquired" )))) +
+  geom_bar() + stat_count(geom = "text", colour = "white", aes(label = paste("N =",..count..)),position=position_stack(vjust=0.5)) + xlab("acquisition") + ylab("Count")
+p1
+```
+### Duration
+```{r}
+p1= ggplot(df) + geom_histogram(aes(x=duration),color="black", fill="grey",bins=18) +
+  ylab('Count') +  xlab('duration') +  geom_vline(aes(xintercept = mean(duration), color = "red"))
+p2 = ggplot(df) + geom_boxplot(aes(x='', y=duration))
+grid.arrange(p1,p2,ncol=2)
+```
+### Profit
+```{r}
+p1= ggplot(df) + geom_histogram(aes(x=profit),color="black", fill="grey",bins=18) +
+  ylab('Count') +  xlab('Profit') +  geom_vline(aes(xintercept = mean(profit), color = "red"))
+p2 = ggplot(df) + geom_boxplot(aes(x='', y=profit))
+grid.arrange(p1,p2,ncol=2)
+```
+### Acq_Exp
+```{r}
+p1= ggplot(df) + geom_histogram(aes(x=acq_exp),color="black", fill="grey",bins=18) +
+  ylab('Count') +  xlab('acq_exp') +  geom_vline(aes(xintercept = mean(acq_exp), color = "red"))
+p2 = ggplot(df) + geom_boxplot(aes(x='', y=acq_exp))
+grid.arrange(p1,p2,ncol=2)
+```
+### Ret_exp
+```{r}
+p1= ggplot(df) + geom_histogram(aes(x=ret_exp),color="black", fill="grey",bins=18) +
+  ylab('Count') +  xlab('ret_exp') +  geom_vline(aes(xintercept = mean(ret_exp), color = "red"))
+p2 = ggplot(df) + geom_boxplot(aes(x='', y=ret_exp))
+grid.arrange(p1,p2,ncol=2)
+```
+### Acq_exp_sq
+```{r}
+p1= ggplot(df) + geom_histogram(aes(x=acq_exp_sq),color="black", fill="grey",bins=18) +
+  ylab('Count') +  xlab('acq_exp_sq') +  geom_vline(aes(xintercept = mean(acq_exp_sq), color = "red"))
+p2 = ggplot(df) + geom_boxplot(aes(x='', y=acq_exp_sq))
+grid.arrange(p1,p2,ncol=2)
+```
+### Ret_exp_sq
+```{r}
+p1= ggplot(df) + geom_histogram(aes(x=ret_exp_sq),color="black", fill="grey",bins=18) +
+  ylab('Count') +  xlab('ret_exp_sq') +  geom_vline(aes(xintercept = mean(ret_exp_sq), color = "red"))
+p2 = ggplot(df) + geom_boxplot(aes(x='', y=ret_exp_sq))
+grid.arrange(p1,p2,ncol=2)
+```
+### Freq
+```{r}
+table(df$freq)
+```
+### Freq_sq
+```{r}
+table(df$freq_sq)
+```
+### Crossbuy
+```{r}
+table(df$crossbuy)
+```
+### Industry
+```{r}
+table(df$industry)
+p1 <- ggplot(df,aes(x = factor(ifelse(industry == 1, "BSB", "Others" )))) +
+  geom_bar() + stat_count(geom = "text", colour = "white", aes(label = paste("N =",..count..)),position=position_stack(vjust=0.5)) + xlab("Industry") + ylab("Count")
+p1
+```
+### Revenue
+```{r}
+p1= ggplot(df) + geom_histogram(aes(x=revenue),color="black", fill="grey",bins=18) +
+  ylab('Count') +  xlab('revenue') +  geom_vline(aes(xintercept = mean(revenue), color = "red"))
+p2 = ggplot(df) + geom_boxplot(aes(x='', y=revenue))
+grid.arrange(p1,p2,ncol=2)
+```
+### Employees
+```{r}
+p1= ggplot(df) + geom_histogram(aes(x=employees),color="black", fill="grey",bins=18) +
+  ylab('Count') +  xlab('employees') +  geom_vline(aes(xintercept = mean(employees), color = "red"))
+p2 = ggplot(df) + geom_boxplot(aes(x='', y=employees))
+grid.arrange(p1,p2,ncol=2)
+```
+### Correlation Matrix
+```{r}
+mat = cor(acquisitionRetention)
+corrplot(mat,method="number",tl.cex=0.7,number.cex = 0.5,col=colorRampPalette(c("grey","blue","black"))(100))
+```
+### The above matrix shows Duration, Profit, ret_exp, ret_exp_sq, freq, crossbuy and sow variables have high correlation with Accquisition.
+
+### Pairwise Plot
+```{r}
+pairs(df)
+```
+```{r}
+plot1 <- df[, c('acquisition','duration','profit','ret_exp','ret_exp_sq','freq','crossbuy','sow')]
+pairs(plot1)
+```
+### Box Plot for Highly correlated variables
+```{r}
+par(mfrow=c(3,3))
+boxplot(duration ~ acquisition, data=df, ylab='duration', xlab='acquisition')
+boxplot(profit ~ acquisition, data=df, ylab='profit', xlab='acquisition')
+boxplot(ret_exp ~ acquisition, data=df, ylab='ret_exp', xlab='acquisition')
+boxplot(acq_exp_sq ~ acquisition, data=df, ylab='acq_exp_sq', xlab='acquisition')
+boxplot(ret_exp_sq ~ acquisition, data=df, ylab='ret_exp_sq', xlab='acquisition')
+boxplot(freq ~ acquisition, data=df, ylab='freq', xlab='acquisition')
+boxplot(freq_sq ~ acquisition, data=df, ylab='freq_sq', xlab='acquisition')
+boxplot(crossbuy ~ acquisition, data=df, ylab='crossbuy', xlab='acquisition')
+boxplot(sow ~ acquisition, data=df, ylab='sow', xlab='acquisition')
+```
+
+# Cut Off Function
+```{r}
+find_p_cutoff <- function(actual_value, positive_class_name, negitive_class_name, pred_probability, p_01=1, p_10=1){
+  # Initializing Variables
+  msclaf_cost <- c()
+  youden_index <- c()
+  cutoff <- c()
+  P00 <- c() # Correct classification of negative as negative (Sensitivity)
+  P01 <- c() # Misclassification of negative class to positive class (actual is 0, predicted 1)
+  P10 <- c() # Misclassification of positive class to negative class (actual 1 predicted 0)
+  P11 <- c() # Correct classification of positive as positive (Specificity)
+  
+  costs = matrix(c(0, p_01, p_10, 0), ncol = 2)
+  
+  for (i in 1:100) {
+    predList <- as.factor(ifelse(pred_probability >= i/100, positive_class_name, negitive_class_name))
+    tbl <- table(predList, actual_value)
+    
+    # Classifying actual no as yes
+    P00[i] <- tbl[1]/(tbl[1] + tbl[2])
+    
+    P01[i] <- tbl[2]/(tbl[1] + tbl[2])
+    
+    # Classifying actual yes as no
+    P10[i] <- tbl[3]/(tbl[3] + tbl[4])
+    
+    P11[i] <- tbl[4]/(tbl[3] + tbl[4])
+    
+    cutoff[i] <- i/100
+    msclaf_cost[i] <- P10[i] * costs[3] + P01[i] * costs[2]
+    youden_index[i] <- P11[i] + P00[i] - 1
+  }
+  df.cost.table <- as.data.frame(cbind(cutoff, P10, P01, P11, P00, youden_index, msclaf_cost))
+  return(which.max(df.cost.table$youden_index)/100)
+}
+```
+
+
+
+# Splitting the data for training and testing data set 
+```{r}
+set.seed(123)
+idx.train <- sample(1:nrow(df), size = 0.7 * nrow(df))
+train.df <- df[idx.train,]
+test.df <- df[-idx.train,]
+```
+
+
+# Prediction of Duration (Untuned Random Forest)
+```{r}
+set.seed(123)
+forest_dur <- rfsrc(duration ~., data = train.df, ntree = 1000)
+pred.dur = predict.rfsrc(forest_dur, newdata = test.df, type = "response")$predicted
+mean((pred.dur - test.df$duration)^2)
+```
+
+
+# Prediction of Acquisition (Untuned Random Forest)
+```{r}
+forest_acq <- rfsrc(as.factor(acquisition) ~ acq_exp+industry+revenue+employees, data = train.df, importance = TRUE, ntree = 1000)
+
+prob.rf_acq = predict(forest_acq, newdata = test.df)$predicted
+
+prob.rf_acq
+train.df$acquisition
+yodCut=find_p_cutoff(actual_value = test.df$acquisition, positive_class_name = 1, 
+              negitive_class_name = 0, pred_probability = prob.rf_acq, p_01 =3, p_10 = 1)
+pred.rf_acq = ifelse(prob.rf_acq >= yodCut,1,0)
+```
+
+# Confusion matrix of Acquisition (Untuned Random Forest)
+```{r}
+confusionMatrix(as.factor(pred.rf_acq),as.factor(test.df$acquisition),positive ="1")
+```
+
+
+# Prediction of Acquisition (Tuned Random Forest)
+```{r}
+# Establish a list of possible values for hyper-parameters
+mtry.values <- seq(5,10,2)
+nodesize.values <- seq(2,10,2)
+ntree.values <- seq(4e3,6e3,1e3)
+
+# Create a data frame containing all combinations 
+hyper_grid <- expand.grid(mtry = mtry.values, nodesize = nodesize.values, ntree = ntree.values)
+
+# Create an empty vector to store OOB error values
+oob_err <- c()
+
+# Write a loop over the rows of hyper_grid to train the grid of models
+for (i in 1:nrow(hyper_grid)) {
+
+    # Train a Random Forest model
+   model <- rfsrc(as.factor(acquisition) ~acq_exp+industry+revenue+employees,data = train.df,
+                            mtry = hyper_grid$mtry[i],
+                            nodesize = hyper_grid$nodesize[i],
+                            ntree = hyper_grid$ntree[i])  
+  
+                          
+    # Store Out Of Bag error for the model                      
+    oob_err[i] <- model$err.rate[length(model$err.rate)]
+}
+
+# Identify optimal set of hyper-parameters based on OOB error
+opt_i <- which.min(oob_err)
+print(hyper_grid[opt_i,])
+```
+```{r}
+forest_acq_tuned <- rfsrc(as.factor(acquisition) ~ acq_exp+industry+revenue+employees, 
+                    data = train.df, importance = TRUE, ntree = 4000, mtry = 7,nodesize = 8)
+
+prob.rf_acq_tuned = predict(forest_acq_tuned, newdata = test.df)$predicted
+pred.rf_acq_tuned = ifelse(prob.rf_acq_tuned>0.5,1,0)
+```
+
+# Confusion Matrix of Acquisition (Tuned Random Forest)
+```{r}
+confusionMatrix(as.factor(pred.rf_acq_tuned),as.factor(test.df$acquisition),positive ="1")
+```
+
+# STEP 2 - Acquired customer
+
+```{r}
+# Data frame with only acquired customer and splitting to training and testing
+df2 = df[df$acquisition == 1,]
+idx.train <- sample(1:nrow(df2), size = 0.7 * nrow(df2))
+train.df2 <- df2[idx.train,]
+test.df2 <- df2[-idx.train,]
+```
+
+```{r}
+forest_dur2 <- rfsrc(duration  ~., data = train.df2, importance = TRUE, ntree = 1000)
+find.interaction(forest_dur2, method = "vimp", importance = "permute") # find most relevant interaction terms
+df2 <- df2 %>%
+    mutate(interaction_ret_exp_profit = ret_exp*profit)
+train.df2b <- df2[idx.train,] #splitting data again to add interaction terms
+test.df2b <- df2[-idx.train,]
+
+
+forest_dur3 <- rfsrc(duration ~., data = train.df2b, importance = TRUE, ntree = 1000) # untuned
+
+pred1 = predict(forest_dur3,test.df2b)$predicted
+mse1 = mean((pred1-test.df2b$duration)^2)
+mse.list=c()
+mse.list[1]= mse1
+```
+
+
+```{r importance}
+forest_dur3$importance # values vary a lot
+
+data.frame(importance = forest_dur3$importance) %>%
+  rownames_to_column(var = "variable") %>%
+  ggplot(aes(x = reorder(variable,importance), y = importance,width = 0.7)) +
+    geom_bar(stat = "identity", fill = "grey", color = "black")+
+    coord_flip() +
+     labs(x = "Variables", y = "Variable importance")+
+     plot_theme
+
+```
+
+
+# Minimal depth tuned RF for duration (only acquired customer)
+```{r minimal depth}
+mindepth <- max.subtree(forest_dur3,
+                        sub.order = TRUE)
+# first order depths
+print(round(mindepth$order, 3)[,1])   # ret_exp has the lowest minimal depth
+
+# visualize MD
+data.frame(md = round(mindepth$order, 3)[,1]) %>%
+  rownames_to_column(var = "variable") %>%
+  ggplot(aes(x = reorder(variable,desc(md)), y = md)) +
+    geom_bar(stat = "identity", fill = "grey", color = "black", width = 0.2)+
+    coord_flip() +
+     labs(x = "Variables", y = "Minimal Depth")+
+     plot_theme
+mindepth$sub.order
+
+```
+
+
+# Getting the optimal hyper-parameters for acquired customers
+```{r}
+# Establish a list of possible values for hyper-parameters
+mtry.values <- seq(5,10,2)
+nodesize.values <- seq(2,10,2)
+ntree.values <- seq(4e3,6e3,1e3)
+
+# Create a data frame containing all combinations 
+hyper_grid <- expand.grid(mtry = mtry.values, nodesize = nodesize.values, ntree = ntree.values)
+
+# Create an empty vector to store OOB error values
+oob_err <- c()
+
+# Write a loop over the rows of hyper_grid to train the grid of models
+for (i in 1:nrow(hyper_grid)) {
+
+    # Train a Random Forest model
+   model <- rfsrc(duration ~.,data = train.df2b,
+                            mtry = hyper_grid$mtry[i],
+                            nodesize = hyper_grid$nodesize[i],
+                            ntree = hyper_grid$ntree[i])  
+  
+                          
+    # Store OOB error for the model                      
+    oob_err[i] <- model$err.rate[length(model$err.rate)]
+}
+
+# Identify optimal set of hyper-parmeters based on OOB error
+opt_i <- which.min(oob_err)
+print(hyper_grid[opt_i,])
+```
+
+
+# Duration: Random Forest Tuned for Acquired customer
+```{r random forecast tuned}
+forest_dur3_tuned <- rfsrc(duration ~., data = train.df2b,
+                            mtry = 7 ,
+                            nodesize = 2,
+                            ntree = 6000)
+
+pred1 = predict(forest_dur3_tuned,test.df2b)$predicted
+mse1 = mean((pred1-test.df2b$duration)^2)
+mse.list[2] = mse1
+mse.list
+```
+
+# Acquisition: Decision Tree vs Logistic Regression models
+```{r}
+dt <- rpart(acquisition ~acq_exp+industry+revenue+employees, data = train.df) # decision tree
+prob.dt = predict(dt, newdata=test.df)
+
+yodCut=find_p_cutoff(actual_value = test.df$acquisition, positive_class_name = 1, 
+              negitive_class_name = 0, pred_probability = prob.dt, p_01 =3, p_10 = 1)
+
+pred.dt = ifelse(prob.dt>yodCut,1,0)
+fancyRpartPlot(dt, sub = "") # visualize the DT
+```
+
+
+```{r}
+confusionMatrix(as.factor(pred.dt),as.factor(test.df$acquisition),positive ="1")
+```
+
+```{r}
+log1 = glm(as.factor(acquisition) ~acq_exp+industry+revenue+employees,data= train.df, family = "binomial")
+vif(log1) #check for multicollinearity
+
+prob.log = predict(log1, newdata = test.df, type = "response")
+yodCut=find_p_cutoff(actual_value = test.df$acquisition, positive_class_name = 1, 
+              negitive_class_name = 0, pred_probability = prob.log, p_01 =3, p_10 = 1)
+pred.log = ifelse(prob.log>yodCut, 1,0)
+```
+
+
+```{r}
+confusionMatrix(as.factor(pred.log),as.factor(test.df$acquisition), positive ="1")
+```
+
+# PDP for Duration
+```{r}
+par(mfrow=c(3,2))
+plot.variable(forest_dur3_tuned,partial=TRUE)
+```
+# PDP for Acquisition
+```{r}
+par(mfrow=c(2,2))
+plot.variable(forest_acq_tuned,partial=TRUE)
+```
+
