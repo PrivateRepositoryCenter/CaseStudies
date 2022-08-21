@@ -1,2 +1,2 @@
 # CaseStudies
-Four Cast Studies as part of Academia
+Case Studies done as part of group.
