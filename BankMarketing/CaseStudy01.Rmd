@@ -1,0 +1,590 @@
+---
+title: "Case Study 1"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars}
+bank <- read.csv('bank-additional.csv', sep=";")
+```
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(MASS); library(car); library(olsrr)
+library(DescTools);library(ResourceSelection)
+library(caret);library(lattice);
+library(gam);library(car)
+library(ROCR);library(gridExtra)
+library(gmodels)
+```
+
+# overview:
+
+```{r pressure, echo=FALSE}
+str(bank)
+head(bank)
+```
+
+```{r}
+summary(bank)
+```
+```{r}
+#bank$job<-as.numeric(as.factor(bank$job))
+#bank$marital<-as.numeric(as.factor(bank$marital))
+#bank$education<-as.numeric(as.factor(bank$education))
+#bank$default<-as.numeric(as.factor(bank$default))
+#bank$housing<-as.numeric(as.factor(bank$housing))
+#bank$loan<-as.numeric(as.factor(bank$loan))
+#bank$contact<-as.numeric(as.factor(bank$contact))
+#bank$month<-as.numeric(as.factor(bank$month))
+#bank$day_of_week<-as.numeric(as.factor(bank$day_of_week))
+#bank$campaign<-as.numeric(as.factor(bank$campaign))
+#bank$previous<-as.numeric(as.factor(bank$previous))
+#bank$poutcome<-as.numeric(as.factor(bank$poutcome))
+```
+
+
+## Check missing values
+```{r}
+colSums(is.na(bank))
+```
+
+## check duplicate values
+```{r}
+sum(duplicated(bank))
+```
+## Target variable 
+
+```{r}
+table(bank$y)
+
+```
+Number of no's greater than yes so there is a data imbalance.
+
+## Unknown values
+In the dataset description we also saw that the data contains 'unknown' values, Lets take a look at that.
+```{r}
+table(bank== "unknown")
+colSums(bank=="unknown")
+```
+So job, marital,education,default,housing and loan have unknown values. We can decide what to do with unknows after exploratory data analysis.
+
+## Visualization and Analysis
+
+## 1.Age
+
+```{r}
+summary(bank$age)
+unique(bank$age)
+cor(bank$age,as.numeric(as.factor(bank$y)))
+```
+
+The distribution of age shows that majority of the bank's customers are aged between 25 - 50. More specifically, 50 % are between 32-47. The median age is 38. So, the target customers of the bank might be middle-aged adults.
+
+```{r}
+p1= ggplot(bank) + geom_histogram(aes(x=age),color="black", fill="grey") +
+  ylab('Count') +  xlab('Age') +  geom_vline(aes(xintercept = mean(age), color = "red")) +
+  scale_x_continuous(breaks = seq(0,100,10)) +  theme_minimal()
+p2 = ggplot(bank) + geom_boxplot(aes(x='', y=age))
+p3=ggplot(data = bank, aes(x=age, fill=y)) + geom_bar() + guides()
+grid.arrange(p1, p2,p3,ncol=2)
+```
+
+## 2.Job
+```{r}
+summary(bank$job)
+unique(bank$job)
+#table(bank$job)
+cor(as.numeric(as.factor(bank$job)),as.numeric(as.factor(bank$y)))
+```
+```{r}
+p1 <- ggplot(bank,aes(y))+geom_bar(aes(job))
+p2 <- ggplot(data = bank, aes(x=job, fill=y)) + geom_bar() + guides()
+grid.arrange(p1, p2, ncol = 2)
+```
+## job variable classification w.r.t target variable
+```{r}
+CrossTable(bank$job,bank$y,prop.t = FALSE,prop.c = FALSE)
+```
+
+## 3.Marital
+```{r}
+summary(bank$marital)
+unique(bank$marital)
+#table(bank$marital)
+cor(as.numeric(as.factor(bank$marital)),as.numeric(as.factor(bank$y)))
+```
+```{r}
+p1<-ggplot(bank,aes(y))+geom_bar(aes(marital))
+p2<-ggplot(data = bank, aes(x=marital, fill=y)) + geom_bar() + guides()
+grid.arrange(p1, p2, ncol = 2)
+```
+## marital variable classification w.r.t target variable
+```{r}
+CrossTable(bank$marital,bank$y,prop.t = FALSE,prop.c = FALSE)
+```
+
+## 4.Education
+
+```{r}
+summary(bank$education)
+unique(bank$education)
+cor(as.numeric(as.factor(bank$education)),as.numeric(as.factor(bank$y)))
+```
+
+```{r}
+p1<-ggplot(bank,aes(y))+geom_bar(aes(education))
+p2<-ggplot(data = bank, aes(x=education, fill=y)) + geom_bar() + guides()
+grid.arrange(p1, p2, ncol = 2)
+```
+## education classification w.r.t target variable
+```{r}
+CrossTable(bank$education,bank$y,prop.t = FALSE,prop.c = FALSE)
+```
+
+## 5.default
+
+```{r}
+summary(bank$default)
+unique(bank$default)
+#table(bank$default)
+cor(as.numeric(as.factor(bank$default)),as.numeric(as.factor(bank$y)))
+```
+```{r}
+p1 <- ggplot(bank,aes(y))+geom_bar(aes(default))
+p2 <- ggplot(data = bank, aes(x=default, fill=y)) + geom_bar() + guides()
+grid.arrange(p1, p2, ncol = 2)
+```
+## default classification w.r.t target variable
+```{r}
+CrossTable(bank$default,bank$y,prop.t = FALSE,prop.c = FALSE)
+```
+
+## 6.Housing
+```{r}
+summary(bank$housing)
+unique(bank$housing)
+#table(bank$housing)
+cor(as.numeric(as.factor(bank$housing)),as.numeric(as.factor(bank$y)))
+```
+```{r}
+p1 <- ggplot(bank,aes(y))+geom_bar(aes(housing))
+p2 <- ggplot(data = bank, aes(x=housing, fill=y)) + geom_bar() + guides()
+grid.arrange(p1, p2, ncol = 2)
+```
+## housing classification w.r.t target variable
+```{r}
+CrossTable(bank$housing,bank$y,prop.t = FALSE,prop.c = FALSE)
+```
+
+## 7. Loan
+
+```{r}
+summary(bank$loan)
+unique(bank$loan)
+cor(as.numeric(as.factor(bank$loan)),as.numeric(as.factor(bank$y)))
+```
+
+```{r}
+p1 <- ggplot(bank,aes(y))+geom_bar(aes(loan))
+p2 <- ggplot(data = bank, aes(x=loan, fill=y)) + geom_bar()+ guides()
+grid.arrange(p1, p2, ncol = 2)
+```
+## loan classification w.r.t target variable
+```{r}
+CrossTable(bank$loan,bank$y,prop.t = FALSE,prop.c = FALSE)
+```
+
+## 8.Contact
+
+```{r}
+summary(bank$contact)
+unique(bank$contact)
+cor(as.numeric(as.factor(bank$contact)),as.numeric(as.factor(bank$y)))
+```
+
+```{r}
+p1 <- ggplot(bank,aes(y))+geom_bar(aes(contact))
+p2 <- ggplot(data = bank, aes(x=contact, fill=y)) + geom_bar()+ guides()
+grid.arrange(p1, p2, ncol = 2)
+```
+## contact classification w.r.t target variable
+```{r}
+CrossTable(bank$contact,bank$y,prop.t = FALSE,prop.c = FALSE)
+```
+## 9.Month
+```{r}
+summary(bank$month)
+unique(bank$month)
+cor(as.numeric(as.factor(bank$month)),as.numeric(as.factor(bank$y)))
+```
+
+```{r}
+p1 <- ggplot(bank,aes(y))+geom_bar(aes(month))
+p2 <- ggplot(data = bank, aes(x=month, fill=y)) + geom_bar()+ guides()
+grid.arrange(p1, p2, ncol = 2)
+```
+## month classification w.r.t target variable
+```{r}
+CrossTable(bank$month,bank$y,prop.t = FALSE,prop.c = FALSE)
+```
+
+## 10.Day_of_Week
+
+```{r}
+summary(bank$day_of_week)
+unique(bank$day_of_week)
+cor(as.numeric(as.factor(bank$day_of_week)),as.numeric(as.factor(bank$y)))
+```
+
+```{r}
+p1 <- ggplot(bank,aes(y))+geom_bar(aes(day_of_week))
+p2 <- ggplot(data = bank, aes(x=day_of_week, fill=y)) + geom_bar()+ guides()
+grid.arrange(p1, p2, ncol = 2)
+```
+## days of week classification w.r.t target variable
+```{r}
+CrossTable(bank$day_of_week,bank$y,prop.t = FALSE,prop.c = FALSE)
+```
+
+## 11.Duation
+
+```{r}
+summary(bank$duration)
+unique(bank$duration)
+cor(as.numeric(as.factor(bank$duration)),as.numeric(as.factor(bank$y)))
+```
+
+```{r}
+p1= ggplot(bank) + geom_histogram(aes(x=duration),color="black", fill="grey",bins=30) +
+  ylab('Count') +  xlab('Duration') +  geom_vline(aes(xintercept = mean(duration), color = "red")) +
+  scale_x_continuous(breaks = seq(0,100,10)) +  theme_minimal()
+p2 = ggplot(bank) + geom_boxplot(aes(x='', y=duration))
+p3=ggplot(data = bank, aes(x=duration, fill=y)) + geom_bar() + guides()
+grid.arrange(p1, p2,p3,ncol=2)
+```
+
+
+## 12.Campaign
+
+```{r}
+summary(bank$campaign)
+unique(bank$campaign)
+cor(as.numeric(as.factor(bank$campaign)),as.numeric(as.factor(bank$y)))
+```
+
+
+```{r}
+p1 <-  ggplot(bank) + geom_histogram(aes(x=campaign),color="black", fill="grey",bins=30) +
+    ylab('Count') +  xlab('Campaign') +  geom_vline(aes(xintercept = mean(campaign), color = "red")) +
+    scale_x_continuous(breaks = seq(0,100,10)) +  theme_minimal()
+p2 <- ggplot(bank) + geom_boxplot(aes(x='', y=campaign))
+p3 <- ggplot(data = bank, aes(x=campaign, fill=y)) + geom_bar() + guides()
+grid.arrange(p1, p2,p3,ncol=2)
+```
+
+## 13.Pdays
+
+```{r}
+summary(bank$pdays)
+unique(bank$pdays)
+cor(as.numeric(as.factor(bank$pdays)),as.numeric(as.factor(bank$y)))
+```
+
+```{r}
+bank <- bank %>% mutate(pdays = if_else(pdays == 999, "0", "1"))
+#hist(as.numeric(bank$pdays))
+p1 <- ggplot(data = bank, aes(x=pdays, fill=y)) + geom_bar()+ guides()
+p1
+```
+
+
+## 14.Previous
+
+```{r}
+summary(bank$previous)
+unique(bank$previous)
+cor(as.numeric(as.factor(bank$previous)),as.numeric(as.factor(bank$y)))
+```
+
+
+```{r}
+p1 <-  ggplot(bank) + geom_histogram(aes(x=previous),color="black", fill="grey",bins=30) +
+    ylab('Count') +  xlab('Previous') +  geom_vline(aes(xintercept = mean(previous), color = "red")) +
+    scale_x_continuous(breaks = seq(0,100,10)) +  theme_minimal()
+p2 <- ggplot(data = bank, aes(x=previous, fill=y)) + geom_bar() + guides()
+grid.arrange(p1,p2,ncol=2)
+```
+## 15.Poutcome
+
+```{r}
+summary(bank$poutcome)
+unique(bank$poutcome)
+cor(as.numeric(as.factor(bank$poutcome)),as.numeric(as.factor(bank$y)))
+```
+
+```{r}
+p1 <- ggplot(bank,aes(y))+geom_bar(aes(poutcome))
+p2 <- ggplot(data = bank, aes(x=poutcome, fill=y)) + geom_bar()+ guides()
+grid.arrange(p1, p2, ncol = 2)
+```
+
+## poutcome classification w.r.t target variable
+```{r}
+CrossTable(bank$poutcome,bank$y,prop.t = FALSE,prop.c = FALSE)
+```
+
+
+## 16.emp.var.rate
+
+```{r}
+summary(bank$emp.var.rate)
+unique(bank$emp.var.rate)
+cor(as.numeric(as.factor(bank$emp.var.rate)),as.numeric(as.factor(bank$y)))
+```
+
+```{r}
+p1 <-  ggplot(bank) + geom_histogram(aes(x=emp.var.rate),color="black", fill="grey",bins=30) +
+    ylab('Count') +  xlab('emp.var.rate') +  geom_vline(aes(xintercept = mean(emp.var.rate), color = "red")) +
+    scale_x_continuous(breaks = seq(0,100,10)) +  theme_minimal()
+p2 <- ggplot(bank) + geom_boxplot(aes(x='', y=emp.var.rate))
+p3 <- ggplot(data = bank, aes(x=emp.var.rate, fill=y)) + geom_bar() + guides()
+grid.arrange(p1, p2,p3,ncol=2)
+```
+## 17.cons.price.idx
+
+```{r}
+summary(bank$cons.price.idx)
+unique(bank$cons.price.idx)
+cor(as.numeric(as.factor(bank$cons.price.idx)),as.numeric(as.factor(bank$y)))
+```
+
+```{r}
+p1 <-  ggplot(bank) + geom_histogram(aes(x=cons.price.idx),color="black", fill="grey",bins=30) +
+    ylab('Count') +  xlab('cons.price.idx') +  geom_vline(aes(xintercept = mean(emp.var.rate), color = "red")) +
+    scale_x_continuous(breaks = seq(0,100,10)) +  theme_minimal()
+p2 <- ggplot(bank) + geom_boxplot(aes(x='', y=cons.price.idx))
+p3 <- ggplot(data = bank, aes(x=cons.price.idx, fill=y)) + geom_bar() + guides()
+grid.arrange(p1, p2,p3,ncol=2)
+```
+## 18.cons.conf.idx
+
+```{r}
+summary(bank$cons.conf.idx)
+unique(bank$cons.conf.idx)
+cor(as.numeric(as.factor(bank$cons.conf.idx)),as.numeric(as.factor(bank$y)))
+```
+
+```{r}
+p1 <-  ggplot(bank) + geom_histogram(aes(x=cons.conf.idx),color="black", fill="grey",bins=30) +
+    ylab('Count') +  xlab('cons.conf.idx') +  geom_vline(aes(xintercept = mean(cons.conf.idx), color = "red")) +
+    scale_x_continuous(breaks = seq(0,100,10)) +  theme_minimal()
+p2 <- ggplot(bank) + geom_boxplot(aes(x='', y=cons.conf.idx))
+p3 <- ggplot(data = bank, aes(x=cons.conf.idx, fill=y)) + geom_bar() + guides()
+grid.arrange(p1, p2,p3,ncol=2)
+```
+## 19.euribor3m
+
+```{r}
+summary(bank$euribor3m)
+unique(bank$euribor3m)
+cor(as.numeric(as.factor(bank$euribor3m)),as.numeric(as.factor(bank$y)))
+```
+
+```{r}
+p1 <-  ggplot(bank) + geom_histogram(aes(x=euribor3m),color="black", fill="grey",bins=30) +
+    ylab('Count') +  xlab('euribor3m') +  geom_vline(aes(xintercept = mean(euribor3m), color = "red")) +
+    scale_x_continuous(breaks = seq(0,100,10)) 
+p2 <- ggplot(bank) + geom_boxplot(aes(x='', y=euribor3m))
+p3 <- ggplot(data = bank, aes(x=euribor3m, fill=y)) + geom_bar(width=0.1) + guides()
+grid.arrange(p1, p2,p3,ncol=2)
+```
+
+## 20.nr.employee
+
+```{r}
+summary(bank$nr.employed)
+unique(bank$nr.employed)
+cor(as.numeric(as.factor(bank$nr.employed)),as.numeric(as.factor(bank$y)))
+```
+
+```{r}
+p1 <-  ggplot(bank) + geom_histogram(aes(x=nr.employed),color="black", fill="grey",bins=30) +
+    ylab('Count') +  xlab('nr.employed') +  geom_vline(aes(xintercept = mean(nr.employed), color = "red")) +
+    scale_x_continuous(breaks = seq(0,100,10)) 
+p2 <- ggplot(bank) + geom_boxplot(aes(x='', y=nr.employed))
+p3 <- ggplot(data = bank, aes(x=nr.employed, fill=y)) + geom_bar() + guides()
+grid.arrange(p1, p2,p3,ncol=2)
+```
+
+## correlation and pairwise comparison 
+
+
+```{r}
+library(corrplot)
+bank_mat <-bank
+bank_mat$age<-as.numeric(as.factor(bank_mat$age))
+bank_mat$job<-as.numeric(as.factor(bank_mat$job))
+bank_mat$marital<-as.numeric(as.factor(bank_mat$marital))
+bank_mat$education<-as.numeric(as.factor(bank_mat$education))
+bank_mat$default<-as.numeric(as.factor(bank_mat$default))
+bank_mat$duration<-as.numeric(as.factor(bank_mat$duration))
+bank_mat$housing<-as.numeric(as.factor(bank_mat$housing))
+bank_mat$loan<-as.numeric(as.factor(bank_mat$loan))
+bank_mat$contact<-as.numeric(as.factor(bank_mat$contact))
+bank_mat$pdays<-as.numeric(as.factor(bank_mat$pdays))
+bank_mat$month<-as.numeric(as.factor(bank_mat$month))
+bank_mat$day_of_week<-as.numeric(as.factor(bank_mat$day_of_week))
+bank_mat$campaign<-as.numeric(as.factor(bank_mat$campaign))
+bank_mat$previous<-as.numeric(as.factor(bank_mat$previous))
+bank_mat$poutcome<-as.numeric(as.factor(bank_mat$poutcome))
+bank_mat$y <- as.numeric(as.factor(bank_mat$y))
+mat <- cor(bank_mat)
+
+corrplot(mat,method="number",tl.cex=0.7,number.cex = 0.5,col=colorRampPalette(c("grey","blue","black"))(100))
+```
+
+```{r}
+#bank$y <- ifelse(bank$y=='yes',1,0)
+#bank$pdays<-as.numeric(as.factor(bank$pdays))
+pairs(bank_mat)
+```
+
+
+```{r}
+bank_1 <- bank_mat[, c('age','duration','month','campaign')]
+pairs(bank_1)
+```
+
+
+## Model
+```{r}
+# Majority Null for pdays, duration should be removed
+bank$pdays <- NULL 
+bank$duration <- NULL
+
+bank$y <- as.factor(bank$y)
+
+# omitting null/unknowns
+bank2 <- na.omit(bank)
+bank2[bank2 == "unknown"] <- NA
+bank2 <- na.omit(bank2)
+str(bank2)
+
+
+levels(as.factor(bank2$default))
+bank2$default = as.factor(bank2$default)
+summary(bank2)
+
+# Splitting data train and test
+splitBank = sort(sample(nrow(bank2), nrow(bank2)*.75))
+Btrain <- bank2[splitBank,]
+Btest <- bank2[-splitBank,]
+
+# AIC model
+form_2 = as.formula(paste0('y ~ .'))
+form_2
+set.seed(1234)
+objControl <- trainControl(method = "none",
+                           summaryFunction = twoClassSummary,
+                           classProbs = TRUE,
+                           savePredictions = TRUE)
+
+Btrain[Btrain == "blue-collar"] <- "bluecollar"
+Btrain[Btrain == "self-employed"] <- "selfemployed"
+
+aicmodel <- train(form_2, data = Btrain,
+               method = 'glmStepAIC',
+               trControl = objControl,
+               metric = "ROC",
+               direction = 'forward')
+
+summary(aicmodel)
+g1 = glm(formula = y ~ ., data = Btrain, family = binomial)
+summary(g1)
+vif(g1)
+
+#multicollinerty square last column > 10
+g2 = glm(formula = y ~ age + job + marital + education + default + housing + loan + contact + month + day_of_week + campaign + previous + poutcome + cons.conf.idx, data = Btrain, family = binomial) 
+summary(g2)
+vif(g2)
+
+# model 3 from AIC
+g3 = glm(formula = y ~ nr.employed + poutcome + month + contact + cons.conf.idx + campaign, data = Btrain, family = binomial)
+vif(g3)
+
+# Probability for 1st model
+Btrain$PredProb = predict.glm(g2, newdata = Btrain, type = "response")
+Btrain$Predy = ifelse(Btrain$PredProb >= 0.5,"yes","no")
+confusionMatrix(Btrain$y, as.factor(Btrain$Predy))
+
+# ROC CURVE MODEL 1
+lgPredObj <- prediction(Btrain$PredProb, Btrain$y)
+lgPerfObj <- performance(lgPredObj, "tpr", "fpr")
+plot(lgPerfObj, main = "ROC Curve", col = 2, lwd = 2)
+abline(a = 0, b = 1, lwd = 2, lty = 3, col = "black")
+
+
+find_cutoff <- function(actual_value, positive_class_name, negitive_class_name, pred_probability, pred_01=1, pred_10=1){
+  # Initialising Variables
+  msclaf_cost <- c()
+  youden_index <- c()
+  cutoff <- c()
+  pred00 <- c() #correct classification of negative as negative (Sensitivity)
+  pred01 <- c() #mis classification of negative to positive class (actual is 0, predicted 1)
+  pred10 <- c() #mis classification of positive to negative class (actual 1 predicted 0)
+  pred11 <- c() #correct classification of positive as positive (Specificity)
+  
+  costs = matrix(c(0, pred_01, pred_10, 0), ncol = 2)
+  
+  for (i in 1:100) {
+    predList <- as.factor(ifelse(pred_probability >= i/100, positive_class_name, negitive_class_name))
+    tbl <- table(predList, actual_value)
+    
+    # Classifying actual no as yes
+    pred00[i] <- tbl[1]/(tbl[1] + tbl[2])
+    
+    pred01[i] <- tbl[2]/(tbl[1] + tbl[2])
+    
+    # Classifying actual yes as no
+    pred10[i] <- tbl[3]/(tbl[3] + tbl[4])
+    
+    pred11[i] <- tbl[4]/(tbl[3] + tbl[4])
+    
+    cutoff[i] <- i/100
+    msclaf_cost[i] <- pred10[i] * costs[3] + pred01[i] * costs[2]
+    youden_index[i] <- pred11[i] + pred00[i] - 1
+  }
+  df.cost.table <- as.data.frame(cbind(cutoff, pred10, pred01, pred11, pred00, youden_index, msclaf_cost))
+  cat(paste0('The ideal cutoff for:\n Yodens Index approach : ', which.max(df.cost.table$youden_index)/100))
+  cat(paste0('\n Cost based approach : ', which.min(df.cost.table$msclaf_cost)/100))
+  ggplot(df.cost.table, aes(x = cutoff)) +
+    geom_line(aes(y = youden_index, color = 'yoden index')) +
+    geom_line(aes(y = msclaf_cost, color = 'misclassification cost'))+
+    labs(x = 'Cutoff p value', y='Index',  title = 'Cutoff p value',fill = 'Plot') +
+    theme_minimal()+ theme(legend.position="bottom")
+}
+
+# CUTOFF MODEL
+find_cutoff(actual_value = Btrain$y, positive_class_name = 'yes', negitive_class_name = 'no', pred_probability = Btrain$PredProb, pred_01 =3, pred_10 = 1)
+Btrain$Predy = ifelse(Btrain$PredProb >= 0.14,"yes","no")
+confusionMatrix(Btrain$y, as.factor(Btrain$Predy))
+
+#### AIC MODEL
+Btrain$PredProb3 = predict.glm(g3, newdata = Btrain, type = "response")
+Btrain$Predy3 = ifelse(Btrain$PredProb3 >= 0.5,"yes","no")
+confusionMatrix(Btrain$y, as.factor(Btrain$Predy3))
+
+
+#Model 3 Cutoff
+find_cutoff(actual_value = Btrain$y, positive_class_name = 'yes', negitive_class_name = 'no', pred_probability = Btrain$PredProb3, pred_01 =3, pred_10 = 1)
+Btrain$Predy3 = ifelse(Btrain$PredProb3 >= 0.13,"yes","no")
+confusionMatrix(Btrain$y, as.factor(Btrain$Predy3))
+```
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
