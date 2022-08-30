@@ -1,2 +1,2 @@
 # CaseStudies
-Case Studies done as part of group.
+Case Studies done as part of a group.
